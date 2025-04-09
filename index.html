@@ -1,155 +1,172 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>酔い軽減アプリ</title>
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background-color: #f0f8ff;
-    }
-    canvas {
-      display: block;
-    }
-  </style>
-</head>
-<body>
-  <canvas id="canvas"></canvas>
+<script>
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  let width, height;
 
-  <script>
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
-    let width, height;
+  function resizeCanvas() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  }
 
-    function resizeCanvas() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    }
+  resizeCanvas();
+  window.addEventListener("resize", resizeCanvas);
 
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
+  let circle = {
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2,
+    z: 0,
+    radius: 30,
+    vx: 0,
+    vy: 0,
+    vz: 0
+  };
 
-    let circle = {
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
-      radius: 30,
-      vx: 0,
-      vy: 0
-    };
+  const damping = 0.9;
 
-    const damping = 0.9;
+  function drawCircle() {
+    const perspective = 300; // 視点距離
+    const scale = perspective / (perspective + circle.z);
+    const displayRadius = circle.radius * scale;
+    const alpha = Math.max(0, Math.min(1, scale)); // 奥に行くほど透明に
 
-    function drawCircle() {
-      ctx.clearRect(0, 0, width, height);
-      ctx.beginPath();
-      ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
-      ctx.fillStyle = "#3498db";
-      ctx.fill();
-    }
+    ctx.clearRect(0, 0, width, height);
+    ctx.beginPath();
+    ctx.arc(circle.x, circle.y, displayRadius, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(52, 152, 219, ${alpha})`;
+    ctx.fill();
+  }
 
-    function rotate3dVector(vector_x, vector_y, vector_z, angle_x, angle_y, angle_z) {
-      if (angle_x < 0) angle_x = 360 + angle_x;
-      if (angle_y < 0) angle_y = 360 + angle_y;
+  function updatePosition(ax, ay, az) {
+    // 加速度を速度に反映
+    circle.vx += ax;
+    circle.vy += ay;
+    circle.vz += az;
 
-      const rad_x = angle_x * Math.PI / 180;
-      const rad_y = angle_y * Math.PI / 180;
-      const rad_z = angle_z * Math.PI / 180;
+    // ダンピング
+    circle.vx *= damping;
+    circle.vy *= damping;
+    circle.vz *= damping;
 
-      const matrix_x = [
-        [1, 0, 0],
-        [0, Math.cos(rad_x), -Math.sin(rad_x)],
-        [0, Math.sin(rad_x), Math.cos(rad_x)]
-      ];
+    // 位置更新
+    circle.x += circle.vx;
+    circle.y += circle.vy;
+    circle.z += circle.vz;
 
-      const matrix_y = [
-        [Math.cos(rad_y), 0, Math.sin(rad_y)],
-        [0, 1, 0],
-        [-Math.sin(rad_y), 0, Math.cos(rad_y)]
-      ];
-
-      const matrix_z = [
-        [Math.cos(rad_z), -Math.sin(rad_z), 0],
-        [Math.sin(rad_z), Math.cos(rad_z), 0],
-        [0, 0, 1]
-      ];
-
-      const calc = (matrix, vector) => {
-        return {
-          x: matrix[0][0] * vector[0] + matrix[0][1] * vector[1] + matrix[0][2] * vector[2],
-          y: matrix[1][0] * vector[0] + matrix[1][1] * vector[1] + matrix[1][2] * vector[2],
-          z: matrix[2][0] * vector[0] + matrix[2][1] * vector[1] + matrix[2][2] * vector[2]
-        };
-      };
-
-      let vec = calc(matrix_x, [vector_x, vector_y, vector_z]);
-      vec = calc(matrix_y, [vec.x, vec.y, vec.z]);
-      vec = calc(matrix_z, [vec.x, vec.y, vec.z]);
-
-      return vec;
+    // Zの制限（遠すぎる or 近すぎるを防ぐ）
+    const zMin = -200;
+    const zMax = 300;
+    if (circle.z < zMin || circle.z > zMax) {
+      circle.vz *= -0.8;
+      circle.z = Math.max(zMin, Math.min(circle.z, zMax));
     }
 
-    let orientation = { alpha: 0, beta: 0, gamma: 0 };
+    // XY画面端反射
+    if (circle.x < circle.radius || circle.x > width - circle.radius) {
+      circle.vx *= -0.8;
+      circle.x = Math.max(circle.radius, Math.min(circle.x, width - circle.radius));
+    }
+    if (circle.y < circle.radius || circle.y > height - circle.radius) {
+      circle.vy *= -0.8;
+      circle.y = Math.max(circle.radius, Math.min(circle.y, height - circle.radius));
+    }
 
-    window.addEventListener("deviceorientation", (event) => {
-      orientation.alpha = event.alpha || 0;
-      orientation.beta = event.beta || 0;
-      orientation.gamma = event.gamma || 0;
+    drawCircle();
+  }
+
+  // 3次元ベクトルの回転処理（ユーザー提供コードそのまま）
+  function rotate3dVector(vector_x, vector_y, vector_z, angle_x, angle_y, angle_z) {
+    if (angle_x < 0) angle_x = 360 + angle_x;
+    if (angle_y < 0) angle_y = 360 + angle_y;
+
+    const rad_x = angle_x * (Math.PI / 180);
+    const rad_y = angle_y * (Math.PI / 180);
+    const rad_z = angle_z * (Math.PI / 180);
+
+    const matrix_x = [
+      [1, 0, 0],
+      [0, Math.cos(rad_x), -Math.sin(rad_x)],
+      [0, Math.sin(rad_x), Math.cos(rad_x)],
+    ];
+    const matrix_y = [
+      [Math.cos(rad_y), 0, Math.sin(rad_y)],
+      [0, 1, 0],
+      [-Math.sin(rad_y), 0, Math.cos(rad_y)],
+    ];
+    const matrix_z = [
+      [Math.cos(rad_z), -Math.sin(rad_z), 0],
+      [Math.sin(rad_z), Math.cos(rad_z), 0],
+      [0, 0, 1],
+    ];
+
+    const calc = (matrix, vector) => ({
+      x: matrix[0][0] * vector[0] + matrix[0][1] * vector[1] + matrix[0][2] * vector[2],
+      y: matrix[1][0] * vector[0] + matrix[1][1] * vector[1] + matrix[1][2] * vector[2],
+      z: matrix[2][0] * vector[0] + matrix[2][1] * vector[1] + matrix[2][2] * vector[2],
     });
 
-    function updatePosition(ax, ay, az) {
-      const rotated = rotate3dVector(ax, ay, az, orientation.beta, orientation.gamma, orientation.alpha);
+    let v = calc(matrix_x, [vector_x, vector_y, vector_z]);
+    v = calc(matrix_y, [v.x, v.y, v.z]);
+    v = calc(matrix_z, [v.x, v.y, v.z]);
 
-      circle.vx += rotated.x;
-      circle.vy += rotated.y;
+    return v;
+  }
 
-      circle.vx *= damping;
-      circle.vy *= damping;
+  // 向きを取得する変数
+  let deviceAngles = { alpha: 0, beta: 0, gamma: 0 };
 
-      circle.x += circle.vx;
-      circle.y += circle.vy;
+  window.addEventListener("deviceorientation", (event) => {
+    deviceAngles = {
+      alpha: event.alpha || 0, // z軸
+      beta: event.beta || 0,   // x軸
+      gamma: event.gamma || 0  // y軸
+    };
+  });
 
-      if (circle.x < circle.radius || circle.x > width - circle.radius) {
-        circle.vx *= -0.8;
-        circle.x = Math.max(circle.radius, Math.min(circle.x, width - circle.radius));
-      }
-      if (circle.y < circle.radius || circle.y > height - circle.radius) {
-        circle.vy *= -0.8;
-        circle.y = Math.max(circle.radius, Math.min(circle.y, height - circle.radius));
-      }
+  function initMotion() {
+    if (typeof DeviceMotionEvent.requestPermission === 'function') {
+      DeviceMotionEvent.requestPermission()
+        .then(permissionState => {
+          if (permissionState === 'granted') {
+            window.addEventListener("devicemotion", (event) => {
+              const acc = event.accelerationIncludingGravity;
+              if (!acc) return;
 
-      drawCircle();
+              const rotated = rotate3dVector(
+                acc.x || 0,
+                acc.y || 0,
+                acc.z || 0,
+                deviceAngles.beta,
+                deviceAngles.gamma,
+                deviceAngles.alpha
+              );
+
+              updatePosition(rotated.x, rotated.y, rotated.z);
+            });
+          } else {
+            alert("加速度センサーの使用が許可されませんでした");
+          }
+        })
+        .catch(console.error);
+    } else {
+      window.addEventListener("devicemotion", (event) => {
+        const acc = event.accelerationIncludingGravity;
+        if (!acc) return;
+
+        const rotated = rotate3dVector(
+          acc.x || 0,
+          acc.y || 0,
+          acc.z || 0,
+          deviceAngles.beta,
+          deviceAngles.gamma,
+          deviceAngles.alpha
+        );
+
+        updatePosition(rotated.x, rotated.y, rotated.z);
+      });
     }
+  }
 
-    function initMotion() {
-      if (typeof DeviceMotionEvent.requestPermission === 'function') {
-        DeviceMotionEvent.requestPermission()
-          .then(permissionState => {
-            if (permissionState === 'granted') {
-              window.addEventListener("devicemotion", (event) => {
-                const ax = event.accelerationIncludingGravity.x || 0;
-                const ay = event.accelerationIncludingGravity.y || 0;
-                const az = event.accelerationIncludingGravity.z || 0;
-                updatePosition(ax, ay, az);
-              });
-            } else {
-              alert("加速度センサーの使用が許可されませんでした");
-            }
-          })
-          .catch(console.error);
-      } else {
-        window.addEventListener("devicemotion", (event) => {
-          const ax = event.accelerationIncludingGravity.x || 0;
-          const ay = event.accelerationIncludingGravity.y || 0;
-          const az = event.accelerationIncludingGravity.z || 0;
-          updatePosition(ax, ay, az);
-        });
-      }
-    }
+  document.body.addEventListener("click", initMotion, { once: true });
 
-    document.body.addEventListener("click", initMotion, { once: true });
-    drawCircle();
-  </script>
-</body>
-</html>
+  drawCircle(); // 初回描画
+</script>
