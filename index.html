@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>酔い軽減アプリ</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #f0f8ff;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    let width, height;
+
+    function resizeCanvas() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    let circle = {
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+      radius: 30,
+      vx: 0,
+      vy: 0
+    };
+
+    const damping = 0.9;
+
+    function drawCircle() {
+      ctx.clearRect(0, 0, width, height);
+      ctx.beginPath();
+      ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
+      ctx.fillStyle = "#3498db";
+      ctx.fill();
+    }
+
+    function updatePosition(ax, ay) {
+      // 加速度を速度に反映
+      circle.vx += ax;
+      circle.vy += ay;
+
+      // 速度にダンピングをかける
+      circle.vx *= damping;
+      circle.vy *= damping;
+
+      // 位置を更新
+      circle.x += circle.vx;
+      circle.y += circle.vy;
+
+      // 画面の端で反射
+      if (circle.x < circle.radius || circle.x > width - circle.radius) {
+        circle.vx *= -0.8;
+        circle.x = Math.max(circle.radius, Math.min(circle.x, width - circle.radius));
+      }
+      if (circle.y < circle.radius || circle.y > height - circle.radius) {
+        circle.vy *= -0.8;
+        circle.y = Math.max(circle.radius, Math.min(circle.y, height - circle.radius));
+      }
+
+      drawCircle();
+    }
+
+    // iOS用：ユーザーの許可を取得
+    function initMotion() {
+      if (typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission()
+          .then(permissionState => {
+            if (permissionState === 'granted') {
+              window.addEventListener("devicemotion", (event) => {
+                const ax = event.accelerationIncludingGravity.x || 0;
+                const ay = event.accelerationIncludingGravity.y || 0;
+                updatePosition(ax, -ay); // iOSの向きによりY軸を反転
+              });
+            } else {
+              alert("加速度センサーの使用が許可されませんでした");
+            }
+          })
+          .catch(console.error);
+      } else {
+        // AndroidなどiOS以外
+        window.addEventListener("devicemotion", (event) => {
+          const ax = event.accelerationIncludingGravity.x || 0;
+          const ay = event.accelerationIncludingGravity.y || 0;
+          updatePosition(ax, -ay);
+        });
+      }
+    }
+
+    // 初回タップでセンサー許可
+    document.body.addEventListener("click", initMotion, { once: true });
+
+    drawCircle(); // 初回描画
+  </script>
+</body>
+</html>
