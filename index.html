@@ -52,10 +52,8 @@
     function updatePosition(ax, ay) {
       circle.vx += ax;
       circle.vy += ay;
-
       circle.vx *= damping;
       circle.vy *= damping;
-
       circle.x += circle.vx;
       circle.y += circle.vy;
 
@@ -71,55 +69,54 @@
       drawCircle();
     }
 
-    function detectOS() {
-      const ua = navigator.userAgent.toLowerCase();
-      if (/iphone|ipad|ipod/.test(ua)) return 'ios';
-      if (/android/.test(ua)) return 'android';
-      return 'other';
-    }
+    function rotate3dVector(x, y, z, angleX, angleY, angleZ) {
+      if (angleX < 0) angleX = 360 + angleX;
+      if (angleY < 0) angleY = 360 + angleY;
 
-    const device = detectOS();
+      const radX = angleX * Math.PI / 180;
+      const radY = angleY * Math.PI / 180;
+      const radZ = angleZ * Math.PI / 180;
 
-    function rotate3dVector(vector_x, vector_y, vector_z, angle_x, angle_y, angle_z) {
-      if (angle_x < 0) angle_x = 360 + angle_x;
-      if (angle_y < 0) angle_y = 360 + angle_y;
-
-      const rad_x = angle_x * (Math.PI / 180);
-      const rad_y = angle_y * (Math.PI / 180);
-      const rad_z = angle_z * (Math.PI / 180);
-
-      const matrix_x = [
+      const matrixX = [
         [1, 0, 0],
-        [0, Math.cos(rad_x), -Math.sin(rad_x)],
-        [0, Math.sin(rad_x), Math.cos(rad_x)]
+        [0, Math.cos(radX), -Math.sin(radX)],
+        [0, Math.sin(radX), Math.cos(radX)]
       ];
 
-      const matrix_y = [
-        [Math.cos(rad_y), 0, Math.sin(rad_y)],
+      const matrixY = [
+        [Math.cos(radY), 0, Math.sin(radY)],
         [0, 1, 0],
-        [-Math.sin(rad_y), 0, Math.cos(rad_y)]
+        [-Math.sin(radY), 0, Math.cos(radY)]
       ];
 
-      const matrix_z = [
-        [Math.cos(rad_z), -Math.sin(rad_z), 0],
-        [Math.sin(rad_z), Math.cos(rad_z), 0],
+      const matrixZ = [
+        [Math.cos(radZ), -Math.sin(radZ), 0],
+        [Math.sin(radZ), Math.cos(radZ), 0],
         [0, 0, 1]
       ];
 
-      function calc(matrix, vector) {
-        return {
-          x: matrix[0][0] * vector[0] + matrix[0][1] * vector[1] + matrix[0][2] * vector[2],
-          y: matrix[1][0] * vector[0] + matrix[1][1] * vector[1] + matrix[1][2] * vector[2],
-          z: matrix[2][0] * vector[0] + matrix[2][1] * vector[1] + matrix[2][2] * vector[2]
-        };
+      function applyMatrix(matrix, vector) {
+        return [
+          matrix[0][0] * vector[0] + matrix[0][1] * vector[1] + matrix[0][2] * vector[2],
+          matrix[1][0] * vector[0] + matrix[1][1] * vector[1] + matrix[1][2] * vector[2],
+          matrix[2][0] * vector[0] + matrix[2][1] * vector[1] + matrix[2][2] * vector[2]
+        ];
       }
 
-      let v = calc(matrix_x, [vector_x, vector_y, vector_z]);
-      v = calc(matrix_y, [v.x, v.y, v.z]);
-      v = calc(matrix_z, [v.x, v.y, v.z]);
+      let vec = applyMatrix(matrixX, [x, y, z]);
+      vec = applyMatrix(matrixY, vec);
+      vec = applyMatrix(matrixZ, vec);
 
-      return v;
+      return { x: vec[0], y: vec[1], z: vec[2] };
     }
+
+    let orientation = { alpha: 0, beta: 0, gamma: 0 };
+
+    window.addEventListener("deviceorientation", (e) => {
+      orientation.alpha = e.alpha || 0; // z軸
+      orientation.beta = e.beta || 0;   // x軸
+      orientation.gamma = e.gamma || 0; // y軸
+    });
 
     function initMotion() {
       if (typeof DeviceMotionEvent.requestPermission === 'function') {
@@ -138,25 +135,15 @@
     }
 
     function handleMotion(event) {
-      const acc = event.accelerationIncludingGravity;
-      const rot = event.rotationRate;
-      if (!acc || !rot) return;
+      const ax = event.accelerationIncludingGravity.x || 0;
+      const ay = event.accelerationIncludingGravity.y || 0;
+      const az = event.accelerationIncludingGravity.z || 0;
 
-      const coefficient = device === 'ios' ? 1 : -1;
-      const ax = acc.x ? acc.x * coefficient : 0;
-      const ay = acc.y ? acc.y * coefficient : 0;
-      const az = acc.z ? acc.z * coefficient : 0;
-
-      const alpha = rot.alpha || 0; // z軸
-      const beta = rot.beta || 0;   // x軸
-      const gamma = rot.gamma || 0; // y軸
-
-      const rotated = rotate3dVector(ax, ay, az, beta, gamma, alpha);
-      updatePosition(rotated.x, -rotated.y); // Y軸は画面向きに合わせて反転
+      const rotated = rotate3dVector(ax, ay, az, orientation.beta, orientation.gamma, orientation.alpha);
+      updatePosition(rotated.x, -rotated.y);
     }
 
     document.body.addEventListener("click", initMotion, { once: true });
-
     drawCircle();
   </script>
 </body>
