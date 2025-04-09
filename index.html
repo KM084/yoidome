@@ -50,19 +50,15 @@
     }
 
     function updatePosition(ax, ay) {
-      // 加速度を速度に反映
       circle.vx += ax;
       circle.vy += ay;
 
-      // 速度にダンピングをかける
       circle.vx *= damping;
       circle.vy *= damping;
 
-      // 位置を更新
       circle.x += circle.vx;
       circle.y += circle.vy;
 
-      // 画面の端で反射
       if (circle.x < circle.radius || circle.x > width - circle.radius) {
         circle.vx *= -0.8;
         circle.x = Math.max(circle.radius, Math.min(circle.x, width - circle.radius));
@@ -75,36 +71,93 @@
       drawCircle();
     }
 
-    // iOS用：ユーザーの許可を取得
+    function detectOS() {
+      const ua = navigator.userAgent.toLowerCase();
+      if (/iphone|ipad|ipod/.test(ua)) return 'ios';
+      if (/android/.test(ua)) return 'android';
+      return 'other';
+    }
+
+    const device = detectOS();
+
+    function rotate3dVector(vector_x, vector_y, vector_z, angle_x, angle_y, angle_z) {
+      if (angle_x < 0) angle_x = 360 + angle_x;
+      if (angle_y < 0) angle_y = 360 + angle_y;
+
+      const rad_x = angle_x * (Math.PI / 180);
+      const rad_y = angle_y * (Math.PI / 180);
+      const rad_z = angle_z * (Math.PI / 180);
+
+      const matrix_x = [
+        [1, 0, 0],
+        [0, Math.cos(rad_x), -Math.sin(rad_x)],
+        [0, Math.sin(rad_x), Math.cos(rad_x)]
+      ];
+
+      const matrix_y = [
+        [Math.cos(rad_y), 0, Math.sin(rad_y)],
+        [0, 1, 0],
+        [-Math.sin(rad_y), 0, Math.cos(rad_y)]
+      ];
+
+      const matrix_z = [
+        [Math.cos(rad_z), -Math.sin(rad_z), 0],
+        [Math.sin(rad_z), Math.cos(rad_z), 0],
+        [0, 0, 1]
+      ];
+
+      function calc(matrix, vector) {
+        return {
+          x: matrix[0][0] * vector[0] + matrix[0][1] * vector[1] + matrix[0][2] * vector[2],
+          y: matrix[1][0] * vector[0] + matrix[1][1] * vector[1] + matrix[1][2] * vector[2],
+          z: matrix[2][0] * vector[0] + matrix[2][1] * vector[1] + matrix[2][2] * vector[2]
+        };
+      }
+
+      let v = calc(matrix_x, [vector_x, vector_y, vector_z]);
+      v = calc(matrix_y, [v.x, v.y, v.z]);
+      v = calc(matrix_z, [v.x, v.y, v.z]);
+
+      return v;
+    }
+
     function initMotion() {
       if (typeof DeviceMotionEvent.requestPermission === 'function') {
         DeviceMotionEvent.requestPermission()
           .then(permissionState => {
             if (permissionState === 'granted') {
-              window.addEventListener("devicemotion", (event) => {
-                const ax = event.accelerationIncludingGravity.x || 0;
-                const ay = event.accelerationIncludingGravity.y || 0;
-                updatePosition(ax, -ay); // iOSの向きによりY軸を反転
-              });
+              window.addEventListener("devicemotion", handleMotion);
             } else {
               alert("加速度センサーの使用が許可されませんでした");
             }
           })
           .catch(console.error);
       } else {
-        // AndroidなどiOS以外
-        window.addEventListener("devicemotion", (event) => {
-          const ax = event.accelerationIncludingGravity.x || 0;
-          const ay = event.accelerationIncludingGravity.y || 0;
-          updatePosition(ax, -ay);
-        });
+        window.addEventListener("devicemotion", handleMotion);
       }
     }
 
-    // 初回タップでセンサー許可
+    function handleMotion(event) {
+      const acc = event.accelerationIncludingGravity;
+      const rot = event.rotationRate;
+      if (!acc || !rot) return;
+
+      const coefficient = device === 'ios' ? 1 : -1;
+      const ax = acc.x ? acc.x * coefficient : 0;
+      const ay = acc.y ? acc.y * coefficient : 0;
+      const az = acc.z ? acc.z * coefficient : 0;
+
+      const alpha = rot.alpha || 0; // z軸
+      const beta = rot.beta || 0;   // x軸
+      const gamma = rot.gamma || 0; // y軸
+
+      const rotated = rotate3dVector(ax, ay, az, beta, gamma, alpha);
+      updatePosition(rotated.x, -rotated.y); // Y軸は画面向きに合わせて反転
+    }
+
     document.body.addEventListener("click", initMotion, { once: true });
 
-    drawCircle(); // 初回描画
+    drawCircle();
   </script>
 </body>
 </html>
