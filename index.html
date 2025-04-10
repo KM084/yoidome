@@ -56,35 +56,55 @@
 
     const tileSize = 100;
     const circleRadius = 30;
+    let rotation = { alpha: 0, beta: 0, gamma: 0 };
 
-    let lastRotation = { alpha: 0, beta: 0, gamma: 0 };
+    function rotate3dVector(x, y, z, angleX, angleY, angleZ) {
+      if (angleX < 0) angleX = 360 + angleX;
+      if (angleY < 0) angleY = 360 + angleY;
 
-    function toVehicleCoordinates(acc, rotation) {
-      const gamma = rotation.gamma * Math.PI / 180;
-      const beta = rotation.beta * Math.PI / 180;
+      const radX = angleX * Math.PI / 180;
+      const radY = angleY * Math.PI / 180;
+      const radZ = angleZ * Math.PI / 180;
 
-      const x = acc.x;
-      const y = acc.y;
-      const z = acc.z;
+      const matrixX = [
+        [1, 0, 0],
+        [0, Math.cos(radX), -Math.sin(radX)],
+        [0, Math.sin(radX), Math.cos(radX)]
+      ];
+      const matrixY = [
+        [Math.cos(radY), 0, Math.sin(radY)],
+        [0, 1, 0],
+        [-Math.sin(radY), 0, Math.cos(radY)]
+      ];
+      const matrixZ = [
+        [Math.cos(radZ), -Math.sin(radZ), 0],
+        [Math.sin(radZ), Math.cos(radZ), 0],
+        [0, 0, 1]
+      ];
 
-      // スマホ → 車両基準座標変換（簡略化）
-      const forward = -x * Math.cos(gamma) - y * Math.sin(beta);
-      const lateral = y * Math.cos(beta);
+      const applyMatrix = (m, v) => ({
+        x: m[0][0]*v[0] + m[0][1]*v[1] + m[0][2]*v[2],
+        y: m[1][0]*v[0] + m[1][1]*v[1] + m[1][2]*v[2],
+        z: m[2][0]*v[0] + m[2][1]*v[1] + m[2][2]*v[2]
+      });
 
-      return { forward, lateral };
+      let vec = applyMatrix(matrixX, [x, y, z]);
+      vec = applyMatrix(matrixY, [vec.x, vec.y, vec.z]);
+      vec = applyMatrix(matrixZ, [vec.x, vec.y, vec.z]);
+      return vec;
     }
 
     function handleMotion(event) {
-      if (event.accelerationIncludingGravity && lastRotation) {
+      if (event.accelerationIncludingGravity) {
         const acc = event.accelerationIncludingGravity;
-        const vehicle = toVehicleCoordinates(acc, lastRotation);
-        camera.vx += vehicle.lateral * camera.damping;
-        camera.vy += vehicle.forward * camera.damping;
+        const rotated = rotate3dVector(acc.x, acc.y, acc.z, rotation.beta, rotation.gamma, rotation.alpha);
+        camera.vx += rotated.x * camera.damping;
+        camera.vy += rotated.y * camera.damping;
       }
     }
 
     window.addEventListener("deviceorientation", (event) => {
-      lastRotation = {
+      rotation = {
         alpha: event.alpha || 0,
         beta: event.beta || 0,
         gamma: event.gamma || 0
