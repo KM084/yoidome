@@ -46,70 +46,76 @@
     window.addEventListener("resize", resizeCanvas);
     resizeCanvas();
 
-    let ball = {
-      x: canvas.width / 2,
-      y: canvas.height / 2,
-      radius: 30,
+    let camera = {
+      x: 0,
+      y: 0,
       vx: 0,
       vy: 0,
       damping: 0.1
     };
 
+    const tileSize = 100;
+    const circleRadius = 30;
+
     function handleMotion(event) {
       if (event.accelerationIncludingGravity) {
         const acc = event.accelerationIncludingGravity;
-        ball.vx += acc.x * ball.damping;
-        ball.vy -= acc.y * ball.damping;
+        camera.vx += acc.x * camera.damping;
+        camera.vy -= acc.y * camera.damping;
       }
     }
 
     function requestSensorPermission() {
+      const btn = document.getElementById("permissionButton");
       if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
         DeviceMotionEvent.requestPermission().then(response => {
           if (response === 'granted') {
             window.addEventListener("devicemotion", handleMotion);
-            document.getElementById("permissionButton").style.display = 'none';
+            btn.style.display = 'none';
           }
         }).catch(console.error);
       } else {
-        // iOS以外のブラウザ対応
         window.addEventListener("devicemotion", handleMotion);
       }
     }
 
-    // iOS Safari 対応のためのボタン表示
     window.addEventListener("load", () => {
       if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-        document.getElementById("permissionButton").style.display = 'block';
-        document.getElementById("permissionButton").addEventListener("click", requestSensorPermission);
+        const btn = document.getElementById("permissionButton");
+        btn.style.display = 'block';
+        btn.addEventListener("click", requestSensorPermission);
       } else {
         requestSensorPermission();
       }
     });
 
     function update() {
-      ball.x += ball.vx;
-      ball.y += ball.vy;
+      camera.x += camera.vx;
+      camera.y += camera.vy;
 
-      if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) {
-        ball.vx *= -0.5;
-        ball.x = Math.max(ball.radius, Math.min(ball.x, canvas.width - ball.radius));
-      }
-      if (ball.y - ball.radius < 0 || ball.y + ball.radius > canvas.height) {
-        ball.vy *= -0.5;
-        ball.y = Math.max(ball.radius, Math.min(ball.y, canvas.height - ball.radius));
-      }
-
-      ball.vx *= 0.98;
-      ball.vy *= 0.98;
+      camera.vx *= 0.98;
+      camera.vy *= 0.98;
     }
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.beginPath();
-      ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-      ctx.fillStyle = "skyblue";
-      ctx.fill();
+
+      const cols = Math.ceil(canvas.width / tileSize) + 2;
+      const rows = Math.ceil(canvas.height / tileSize) + 2;
+
+      const offsetX = camera.x % tileSize;
+      const offsetY = camera.y % tileSize;
+
+      for (let row = -1; row < rows; row++) {
+        for (let col = -1; col < cols; col++) {
+          const x = col * tileSize - offsetX;
+          const y = row * tileSize - offsetY;
+          ctx.beginPath();
+          ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
+          ctx.fillStyle = "skyblue";
+          ctx.fill();
+        }
+      }
     }
 
     function loop() {
