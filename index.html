@@ -162,27 +162,25 @@
       const offsetX = camera.x % tileSize;
       const offsetY = camera.y % tileSize;
 
-      const perspective = 0.003;
-      const viewAngle = Math.PI / 4;
-      const sin = Math.sin(viewAngle);
-      const cos = Math.cos(viewAngle);
+      const groundHeight = canvas.height * 1.2;
+      const horizonY = canvas.height * 0.3;
 
       for (let row = -1; row < rows; row++) {
         for (let col = -1; col < cols; col++) {
           const worldX = col * tileSize - offsetX;
           const worldY = row * tileSize - offsetY;
 
-          // 擬似3D変換
-          const screenX = canvas.width / 2 + (worldX - worldY) * cos;
-          const screenY = canvas.height / 2 + (worldX + worldY) * sin * 0.5;
+          const screenX = canvas.width / 2 + worldX;
+          const screenY = horizonY + worldY * 0.8;
 
-          const distance = Math.sqrt(worldX * worldX + worldY * worldY);
-          const scale = 1 / (1 + distance * perspective);
-          const radius = circleRadius * scale;
+          const perspective = 1 - (screenY / groundHeight);
+          const radiusX = circleRadius * (0.5 + perspective);
+          const radiusY = radiusX * 0.4;
+          const alpha = 0.2 + 0.8 * perspective;
 
           ctx.beginPath();
-          ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(135, 206, 235, ${scale})`;
+          ctx.ellipse(screenX, screenY, radiusX, radiusY, 0, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(135, 206, 235, ${alpha})`;
           ctx.fill();
         }
       }
