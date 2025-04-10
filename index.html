@@ -1,172 +1,91 @@
-<script>
-  const canvas = document.getElementById("canvas");
-  const ctx = canvas.getContext("2d");
-  let width, height;
-
-  function resizeCanvas() {
-    width = canvas.width = window.innerWidth;
-    height = canvas.height = window.innerHeight;
-  }
-
-  resizeCanvas();
-  window.addEventListener("resize", resizeCanvas);
-
-  let circle = {
-    x: window.innerWidth / 2,
-    y: window.innerHeight / 2,
-    z: 0,
-    radius: 30,
-    vx: 0,
-    vy: 0,
-    vz: 0
-  };
-
-  const damping = 0.9;
-
-  function drawCircle() {
-    const perspective = 300; // 視点距離
-    const scale = perspective / (perspective + circle.z);
-    const displayRadius = circle.radius * scale;
-    const alpha = Math.max(0, Math.min(1, scale)); // 奥に行くほど透明に
-
-    ctx.clearRect(0, 0, width, height);
-    ctx.beginPath();
-    ctx.arc(circle.x, circle.y, displayRadius, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(52, 152, 219, ${alpha})`;
-    ctx.fill();
-  }
-
-  function updatePosition(ax, ay, az) {
-    // 加速度を速度に反映
-    circle.vx += ax;
-    circle.vy += ay;
-    circle.vz += az;
-
-    // ダンピング
-    circle.vx *= damping;
-    circle.vy *= damping;
-    circle.vz *= damping;
-
-    // 位置更新
-    circle.x += circle.vx;
-    circle.y += circle.vy;
-    circle.z += circle.vz;
-
-    // Zの制限（遠すぎる or 近すぎるを防ぐ）
-    const zMin = -200;
-    const zMax = 300;
-    if (circle.z < zMin || circle.z > zMax) {
-      circle.vz *= -0.8;
-      circle.z = Math.max(zMin, Math.min(circle.z, zMax));
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>酔い軽減アプリ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: #f0f8ff;
+      height: 100%;
+      overflow: hidden;
     }
-
-    // XY画面端反射
-    if (circle.x < circle.radius || circle.x > width - circle.radius) {
-      circle.vx *= -0.8;
-      circle.x = Math.max(circle.radius, Math.min(circle.x, width - circle.radius));
+    canvas {
+      display: block;
     }
-    if (circle.y < circle.radius || circle.y > height - circle.radius) {
-      circle.vy *= -0.8;
-      circle.y = Math.max(circle.radius, Math.min(circle.y, height - circle.radius));
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    // リサイズ処理
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
     }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
 
-    drawCircle();
-  }
+    // 円の状態
+    let ball = {
+      x: canvas.width / 2,
+      y: canvas.height / 2,
+      radius: 30,
+      vx: 0,
+      vy: 0,
+      damping: 0.1  // 動きを抑える
+    };
 
-  // 3次元ベクトルの回転処理（ユーザー提供コードそのまま）
-  function rotate3dVector(vector_x, vector_y, vector_z, angle_x, angle_y, angle_z) {
-    if (angle_x < 0) angle_x = 360 + angle_x;
-    if (angle_y < 0) angle_y = 360 + angle_y;
-
-    const rad_x = angle_x * (Math.PI / 180);
-    const rad_y = angle_y * (Math.PI / 180);
-    const rad_z = angle_z * (Math.PI / 180);
-
-    const matrix_x = [
-      [1, 0, 0],
-      [0, Math.cos(rad_x), -Math.sin(rad_x)],
-      [0, Math.sin(rad_x), Math.cos(rad_x)],
-    ];
-    const matrix_y = [
-      [Math.cos(rad_y), 0, Math.sin(rad_y)],
-      [0, 1, 0],
-      [-Math.sin(rad_y), 0, Math.cos(rad_y)],
-    ];
-    const matrix_z = [
-      [Math.cos(rad_z), -Math.sin(rad_z), 0],
-      [Math.sin(rad_z), Math.cos(rad_z), 0],
-      [0, 0, 1],
-    ];
-
-    const calc = (matrix, vector) => ({
-      x: matrix[0][0] * vector[0] + matrix[0][1] * vector[1] + matrix[0][2] * vector[2],
-      y: matrix[1][0] * vector[0] + matrix[1][1] * vector[1] + matrix[1][2] * vector[2],
-      z: matrix[2][0] * vector[0] + matrix[2][1] * vector[1] + matrix[2][2] * vector[2],
+    // 加速度センサーのイベント
+    window.addEventListener("devicemotion", (event) => {
+      if (event.accelerationIncludingGravity) {
+        const acc = event.accelerationIncludingGravity;
+        // 加速度をそのまま速度に加算（感度は調整可能）
+        ball.vx += acc.x * ball.damping;
+        ball.vy -= acc.y * ball.damping; // スマホ向きの調整（上下反転）
+      }
     });
 
-    let v = calc(matrix_x, [vector_x, vector_y, vector_z]);
-    v = calc(matrix_y, [v.x, v.y, v.z]);
-    v = calc(matrix_z, [v.x, v.y, v.z]);
+    function update() {
+      ball.x += ball.vx;
+      ball.y += ball.vy;
 
-    return v;
-  }
+      // 壁で跳ね返る処理
+      if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) {
+        ball.vx *= -0.5;
+        ball.x = Math.max(ball.radius, Math.min(ball.x, canvas.width - ball.radius));
+      }
+      if (ball.y - ball.radius < 0 || ball.y + ball.radius > canvas.height) {
+        ball.vy *= -0.5;
+        ball.y = Math.max(ball.radius, Math.min(ball.y, canvas.height - ball.radius));
+      }
 
-  // 向きを取得する変数
-  let deviceAngles = { alpha: 0, beta: 0, gamma: 0 };
-
-  window.addEventListener("deviceorientation", (event) => {
-    deviceAngles = {
-      alpha: event.alpha || 0, // z軸
-      beta: event.beta || 0,   // x軸
-      gamma: event.gamma || 0  // y軸
-    };
-  });
-
-  function initMotion() {
-    if (typeof DeviceMotionEvent.requestPermission === 'function') {
-      DeviceMotionEvent.requestPermission()
-        .then(permissionState => {
-          if (permissionState === 'granted') {
-            window.addEventListener("devicemotion", (event) => {
-              const acc = event.accelerationIncludingGravity;
-              if (!acc) return;
-
-              const rotated = rotate3dVector(
-                acc.x || 0,
-                acc.y || 0,
-                acc.z || 0,
-                deviceAngles.beta,
-                deviceAngles.gamma,
-                deviceAngles.alpha
-              );
-
-              updatePosition(rotated.x, rotated.y, rotated.z);
-            });
-          } else {
-            alert("加速度センサーの使用が許可されませんでした");
-          }
-        })
-        .catch(console.error);
-    } else {
-      window.addEventListener("devicemotion", (event) => {
-        const acc = event.accelerationIncludingGravity;
-        if (!acc) return;
-
-        const rotated = rotate3dVector(
-          acc.x || 0,
-          acc.y || 0,
-          acc.z || 0,
-          deviceAngles.beta,
-          deviceAngles.gamma,
-          deviceAngles.alpha
-        );
-
-        updatePosition(rotated.x, rotated.y, rotated.z);
-      });
+      // 少しずつ減速
+      ball.vx *= 0.98;
+      ball.vy *= 0.98;
     }
-  }
 
-  document.body.addEventListener("click", initMotion, { once: true });
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+      ctx.fillStyle = "skyblue";
+      ctx.fill();
+    }
 
-  drawCircle(); // 初回描画
-</script>
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>
