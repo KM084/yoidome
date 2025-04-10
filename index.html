@@ -52,7 +52,7 @@
       vx: 0,
       vy: 0,
       damping: 0.1,
-      heading: 0 // 車両の向きを模倣（曲がり対策）
+      heading: 0
     };
 
     const tileSize = 100;
@@ -119,8 +119,6 @@
         beta: event.beta || 0,
         gamma: event.gamma || 0
       };
-
-      // alphaの値で車両の向きの変化を模擬（左回りを正）
       camera.heading = event.alpha || 0;
     });
 
@@ -151,7 +149,6 @@
     function update() {
       camera.x += camera.vx;
       camera.y += camera.vy;
-
       camera.vx *= 0.98;
       camera.vy *= 0.98;
     }
@@ -165,13 +162,27 @@
       const offsetX = camera.x % tileSize;
       const offsetY = camera.y % tileSize;
 
+      const perspective = 0.003;
+      const viewAngle = Math.PI / 4;
+      const sin = Math.sin(viewAngle);
+      const cos = Math.cos(viewAngle);
+
       for (let row = -1; row < rows; row++) {
         for (let col = -1; col < cols; col++) {
-          const x = col * tileSize - offsetX;
-          const y = row * tileSize - offsetY;
+          const worldX = col * tileSize - offsetX;
+          const worldY = row * tileSize - offsetY;
+
+          // 擬似3D変換
+          const screenX = canvas.width / 2 + (worldX - worldY) * cos;
+          const screenY = canvas.height / 2 + (worldX + worldY) * sin * 0.5;
+
+          const distance = Math.sqrt(worldX * worldX + worldY * worldY);
+          const scale = 1 / (1 + distance * perspective);
+          const radius = circleRadius * scale;
+
           ctx.beginPath();
-          ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
-          ctx.fillStyle = "skyblue";
+          ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(135, 206, 235, ${scale})`;
           ctx.fill();
         }
       }
