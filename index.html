@@ -156,27 +156,26 @@
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const cols = Math.ceil(canvas.width / tileSize) + 2;
-      const rows = Math.ceil(canvas.height / tileSize) + 2;
+      const perspective = 0.002;
+      const vanishX = canvas.width / 2;
+      const vanishY = canvas.height * 0.3;
 
-      const offsetX = camera.x % tileSize;
-      const offsetY = camera.y % tileSize;
+      const range = 20;
+      for (let i = -range; i <= range; i++) {
+        for (let j = 0; j < range; j++) {
+          const worldX = i * tileSize - camera.x;
+          const worldY = j * tileSize - camera.y;
 
-      const groundHeight = canvas.height * 1.2;
-      const horizonY = canvas.height * 0.3;
+          const dx = worldX - vanishX;
+          const dy = worldY - vanishY;
 
-      for (let row = -1; row < rows; row++) {
-        for (let col = -1; col < cols; col++) {
-          const worldX = col * tileSize - offsetX;
-          const worldY = row * tileSize - offsetY;
+          const scale = 1 / (1 + dy * perspective);
+          const screenX = vanishX + dx * scale;
+          const screenY = vanishY + dy * scale;
 
-          const screenX = canvas.width / 2 + worldX;
-          const screenY = horizonY + worldY * 0.8;
-
-          const perspective = 1 - (screenY / groundHeight);
-          const radiusX = circleRadius * (0.5 + perspective);
+          const radiusX = circleRadius * scale;
           const radiusY = radiusX * 0.4;
-          const alpha = 0.2 + 0.8 * perspective;
+          const alpha = Math.max(0, Math.min(1, scale));
 
           ctx.beginPath();
           ctx.ellipse(screenX, screenY, radiusX, radiusY, 0, 0, Math.PI * 2);
