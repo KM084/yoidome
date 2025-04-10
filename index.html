@@ -57,13 +57,39 @@
     const tileSize = 100;
     const circleRadius = 30;
 
+    let lastRotation = { alpha: 0, beta: 0, gamma: 0 };
+
+    function toVehicleCoordinates(acc, rotation) {
+      const gamma = rotation.gamma * Math.PI / 180;
+      const beta = rotation.beta * Math.PI / 180;
+
+      const x = acc.x;
+      const y = acc.y;
+      const z = acc.z;
+
+      // スマホ → 車両基準座標変換（簡略化）
+      const forward = -x * Math.cos(gamma) - y * Math.sin(beta);
+      const lateral = y * Math.cos(beta);
+
+      return { forward, lateral };
+    }
+
     function handleMotion(event) {
-      if (event.accelerationIncludingGravity) {
+      if (event.accelerationIncludingGravity && lastRotation) {
         const acc = event.accelerationIncludingGravity;
-        camera.vx += acc.x * camera.damping;
-        camera.vy -= acc.y * camera.damping;
+        const vehicle = toVehicleCoordinates(acc, lastRotation);
+        camera.vx += vehicle.lateral * camera.damping;
+        camera.vy += vehicle.forward * camera.damping;
       }
     }
+
+    window.addEventListener("deviceorientation", (event) => {
+      lastRotation = {
+        alpha: event.alpha || 0,
+        beta: event.beta || 0,
+        gamma: event.gamma || 0
+      };
+    });
 
     function requestSensorPermission() {
       const btn = document.getElementById("permissionButton");
