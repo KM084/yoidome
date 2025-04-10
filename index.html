@@ -51,7 +51,8 @@
       y: 0,
       vx: 0,
       vy: 0,
-      damping: 0.1
+      damping: 0.1,
+      heading: 0 // 車両の向きを模倣（曲がり対策）
     };
 
     const tileSize = 100;
@@ -94,12 +95,21 @@
       return vec;
     }
 
+    function rotate2dVector(x, y, angleDeg) {
+      const rad = angleDeg * Math.PI / 180;
+      return {
+        x: x * Math.cos(rad) - y * Math.sin(rad),
+        y: x * Math.sin(rad) + y * Math.cos(rad)
+      };
+    }
+
     function handleMotion(event) {
       if (event.accelerationIncludingGravity) {
         const acc = event.accelerationIncludingGravity;
         const rotated = rotate3dVector(acc.x, acc.y, acc.z, rotation.beta, rotation.gamma, rotation.alpha);
-        camera.vx += rotated.x * camera.damping;
-        camera.vy += rotated.y * camera.damping;
+        const adjusted = rotate2dVector(rotated.x, rotated.y, -camera.heading);
+        camera.vx += adjusted.x * camera.damping;
+        camera.vy += adjusted.y * camera.damping;
       }
     }
 
@@ -109,6 +119,9 @@
         beta: event.beta || 0,
         gamma: event.gamma || 0
       };
+
+      // alphaの値で車両の向きの変化を模擬（左回りを正）
+      camera.heading = event.alpha || 0;
     });
 
     function requestSensorPermission() {
