@@ -1,4 +1,159 @@
-function draw() {
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>酔い軽減アプリ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: #f0f8ff;
+      height: 100%;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+    }
+    #permissionButton {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 18px;
+      padding: 1em 2em;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <button id="permissionButton" style="display:none;">加速度センサーを有効にする</button>
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    let camera = {
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      damping: 0.1,
+      heading: 0
+    };
+
+    const tileSize = 100;
+    const circleRadius = 30;
+    let rotation = { alpha: 0, beta: 0, gamma: 0 };
+
+    function rotate3dVector(x, y, z, angleX, angleY, angleZ) {
+      if (angleX < 0) angleX = 360 + angleX;
+      if (angleY < 0) angleY = 360 + angleY;
+
+      const radX = angleX * Math.PI / 180;
+      const radY = angleY * Math.PI / 180;
+      const radZ = angleZ * Math.PI / 180;
+
+      const matrixX = [
+        [1, 0, 0],
+        [0, Math.cos(radX), -Math.sin(radX)],
+        [0, Math.sin(radX), Math.cos(radX)]
+      ];
+      const matrixY = [
+        [Math.cos(radY), 0, Math.sin(radY)],
+        [0, 1, 0],
+        [-Math.sin(radY), 0, Math.cos(radY)]
+      ];
+      const matrixZ = [
+        [Math.cos(radZ), -Math.sin(radZ), 0],
+        [Math.sin(radZ), Math.cos(radZ), 0],
+        [0, 0, 1]
+      ];
+
+      const applyMatrix = (m, v) => ({
+        x: m[0][0]*v[0] + m[0][1]*v[1] + m[0][2]*v[2],
+        y: m[1][0]*v[0] + m[1][1]*v[1] + m[1][2]*v[2],
+        z: m[2][0]*v[0] + m[2][1]*v[1] + m[2][2]*v[2]
+      });
+
+      let vec = applyMatrix(matrixX, [x, y, z]);
+      vec = applyMatrix(matrixY, [vec.x, vec.y, vec.z]);
+      vec = applyMatrix(matrixZ, [vec.x, vec.y, vec.z]);
+      return vec;
+    }
+
+    function rotate2dVector(x, y, angleDeg) {
+      const rad = angleDeg * Math.PI / 180;
+      return {
+        x: x * Math.cos(rad) - y * Math.sin(rad),
+        y: x * Math.sin(rad) + y * Math.cos(rad)
+      };
+    }
+
+    function handleMotion(event) {
+      if (event.accelerationIncludingGravity) {
+        const acc = event.accelerationIncludingGravity;
+        const rotated = rotate3dVector(acc.x, acc.y, acc.z, rotation.beta, rotation.gamma, rotation.alpha);
+        const adjusted = rotate2dVector(rotated.x, rotated.y, -camera.heading);
+        camera.vx += adjusted.x * camera.damping;
+        camera.vy += adjusted.y * camera.damping;
+      }
+    }
+
+    window.addEventListener("deviceorientation", (event) => {
+      rotation = {
+        alpha: event.alpha || 0,
+        beta: event.beta || 0,
+        gamma: event.gamma || 0
+      };
+      camera.heading = event.alpha || 0;
+    });
+
+    function requestSensorPermission() {
+      const btn = document.getElementById("permissionButton");
+      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission().then(response => {
+          if (response === 'granted') {
+            window.addEventListener("devicemotion", handleMotion);
+            btn.style.display = 'none';
+          }
+        }).catch(console.error);
+      } else {
+        window.addEventListener("devicemotion", handleMotion);
+      }
+    }
+
+    window.addEventListener("load", () => {
+      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        const btn = document.getElementById("permissionButton");
+        btn.style.display = 'block';
+        btn.addEventListener("click", requestSensorPermission);
+      } else {
+        requestSensorPermission();
+      }
+    });
+
+    function update() {
+      camera.x += camera.vx;
+      camera.y += camera.vy;
+      camera.vx *= 0.98;
+      camera.vy *= 0.98;
+    }
+
+    function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       const perspective = 0.002;
@@ -9,12 +164,12 @@ function draw() {
       for (let i = -range; i <= range; i++) {
         for (let j = 0; j < range; j++) {
           const worldX = i * tileSize - camera.x;
-          const worldY = j * tileSize - camera.y;
+          const worldY = -j * tileSize - camera.y; // 画面下が手前になるよう反転
 
           const dx = worldX - vanishX;
           const dy = worldY - vanishY;
 
-          const scale = 1 / (1 + (canvas.height - dy) * perspective);
+          const scale = 1 / (1 - dy * perspective); // dyが負のとき大きく
           const screenX = vanishX + dx * scale;
           const screenY = vanishY + dy * scale;
 
