@@ -158,12 +158,12 @@
 
       const perspective = 0.002;
       const vanishX = canvas.width / 2;
-      const vanishY = canvas.height * 0.7; // 消失点を画面中心に
+      const vanishY = canvas.height / 2; // 画面中央に消失点
 
       const step = tileSize;
       const drawDepth = 2000;
 
-      for (let worldY = 0; worldY < drawDepth; worldY += step) {
+      for (let worldY = 0; worldY > -drawDepth; worldY -= step) {
         for (let worldX = -drawDepth; worldX < drawDepth; worldX += step) {
           const relX = worldX - camera.x;
           const relY = worldY - camera.y;
@@ -171,7 +171,7 @@
           const dx = relX;
           const dy = relY;
 
-          const scale = 1 / (1 + dy * perspective);
+          const scale = 1 / (1 - dy * perspective);
           const screenX = vanishX + dx * scale;
           const screenY = vanishY + dy * scale;
 
