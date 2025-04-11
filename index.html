@@ -158,7 +158,7 @@
 
       const perspective = 0.002;
       const vanishX = canvas.width / 2;
-      const vanishY = canvas.height / 2; // 画面中央に消失点
+      const vanishY = canvas.height * 0.6; // 消失点：画面やや下
 
       const step = tileSize;
       const drawDepth = 2000;
@@ -175,7 +175,7 @@
           const screenX = vanishX + dx * scale;
           const screenY = vanishY + dy * scale;
 
-          if (screenX < -100 || screenX > canvas.width + 100 || screenY < -100 || screenY > canvas.height + 100) continue;
+          if (screenY < canvas.height * 0.5 || screenY > canvas.height + 100) continue;
 
           const radiusX = circleRadius * scale;
           const radiusY = radiusX * 0.4;
