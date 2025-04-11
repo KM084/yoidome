@@ -160,18 +160,23 @@
       const vanishX = canvas.width / 2;
       const vanishY = canvas.height * 0.3;
 
-      const range = 20;
-      for (let i = -range; i <= range; i++) {
-        for (let j = 0; j < range; j++) {
-          const worldX = i * tileSize - camera.x;
-          const worldY = -j * tileSize - camera.y; // 画面下が手前になるよう反転
+      const screenRange = Math.max(canvas.width, canvas.height);
+      const step = tileSize;
+      const drawDepth = 2000;
 
-          const dx = worldX - vanishX;
-          const dy = worldY - vanishY;
+      for (let worldY = 0; worldY > -drawDepth; worldY -= step) {
+        for (let worldX = -drawDepth; worldX < drawDepth; worldX += step) {
+          const relX = worldX - camera.x;
+          const relY = worldY - camera.y;
 
-          const scale = 1 / (1 - dy * perspective); // dyが負のとき大きく
+          const dx = relX;
+          const dy = relY;
+
+          const scale = 1 / (1 - dy * perspective);
           const screenX = vanishX + dx * scale;
           const screenY = vanishY + dy * scale;
+
+          if (screenX < -100 || screenX > canvas.width + 100 || screenY < -100 || screenY > canvas.height + 100) continue;
 
           const radiusX = circleRadius * scale;
           const radiusY = radiusX * 0.4;
