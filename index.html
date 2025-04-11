@@ -156,35 +156,19 @@
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const perspective = 0.002;
-      const vanishX = canvas.width / 2;
-      const vanishY = canvas.height * 0.6; // 消失点：画面やや下
+      const cols = Math.ceil(canvas.width / tileSize) + 2;
+      const rows = Math.ceil(canvas.height / tileSize) + 2;
 
-      const stepX = tileSize * 2;
-      const stepY = tileSize;
-      const drawDepth = 2000;
+      const offsetX = camera.x % tileSize;
+      const offsetY = camera.y % tileSize;
 
-      for (let worldY = 0; worldY > -drawDepth; worldY -= stepY) {
-        for (let worldX = -drawDepth; worldX < drawDepth; worldX += stepX) {
-          const relX = worldX - camera.x;
-          const relY = worldY - camera.y;
-
-          const dx = relX;
-          const dy = relY;
-
-          const scale = 1 / (1 - dy * perspective);
-          const screenX = vanishX + dx * scale;
-          const screenY = vanishY + dy * scale;
-
-          if (screenY < canvas.height * 0.5 || screenY > canvas.height + 100) continue;
-
-          const radiusX = circleRadius * scale;
-          const radiusY = radiusX * 0.4;
-          const alpha = Math.max(0, Math.min(1, scale));
-
+      for (let row = -1; row < rows; row++) {
+        for (let col = -1; col < cols; col++) {
+          const x = col * tileSize - offsetX;
+          const y = row * tileSize - offsetY;
           ctx.beginPath();
-          ctx.ellipse(screenX, screenY, radiusX, radiusY, 0, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(135, 206, 235, ${alpha})`;
+          ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
+          ctx.fillStyle = "skyblue";
           ctx.fill();
         }
       }
