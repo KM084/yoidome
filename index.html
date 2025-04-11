@@ -160,11 +160,12 @@
       const vanishX = canvas.width / 2;
       const vanishY = canvas.height * 0.6; // 消失点：画面やや下
 
-      const step = tileSize;
+      const stepX = tileSize;
+      const stepY = tileSize;
       const drawDepth = 2000;
 
-      for (let worldY = 0; worldY > -drawDepth; worldY -= step) {
-        for (let worldX = -drawDepth; worldX < drawDepth; worldX += step) {
+      for (let worldY = 0; worldY > -drawDepth; worldY -= stepY) {
+        for (let worldX = -drawDepth; worldX < drawDepth; worldX += stepX) {
           const relX = worldX - camera.x;
           const relY = worldY - camera.y;
 
